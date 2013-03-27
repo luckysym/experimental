@@ -1,7 +1,6 @@
 #ifndef _SYM_SOCKINTF_H
 #define _SYM_SOCKINTF_H
 
-
 namespace sym
 {
 
@@ -38,12 +37,6 @@ public:
 	virtual int Listen(int backlog) = 0;
 	virtual int Accept() = 0;
 	virtual int Close() = 0;
-};
-
-class CInetServerSocket : public IServerSocket
-{
-public:
-	
 };
 
 
