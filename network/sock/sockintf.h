@@ -7,11 +7,11 @@ namespace sym
 class IInetSocketAddress 
 {
 public:
-	virtual uint32_t GetIPAddress() const         = 0;
-	virtual int      GetIPAddressStr(std::string& ipaddr) const = 0;
+	virtual uint32_t GetHostAddress() const         = 0;
+	virtual int      GetHostAddressStr(std::string& ipaddr) const = 0;
   	virtual uint16_t GetPort() const              = 0;
-	virtual int      SetIPAddress(uint32_t addr);
-	virtual int      SetIPAddressStr(const std::string& ipaddr) = 0;
+	virtual int      SetHostAddress(uint32_t addr);
+	virtual int      SetHostAddressStr(const std::string& ipaddr) = 0;
 	virtual int      SetPort(uint16_t port) = 0;
 };
 

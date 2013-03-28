@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include <arpa/inet.h>
 
 ////////////////////////////////////////////
 // Declaration of classes
@@ -18,12 +18,17 @@ class CInetSocketAddress : public IInetSocketAddress
 public: 
 	//---- Inherited from IInetSocketAddress
 
-	uint32_t GetIPAddress() const;
-	int      GetIPAddressStr(std::string& ipaddr) const;
+	uint32_t GetHostAddress() const;
+	int      GetHostAddressStr(std::string& ipaddr) const;
 	uint16_t GetPort() const;
-	int      SetIPAddress(uint32_t addr);
-	int      SetIPAddressStr(const std::string& ipaddr);
+	int      SetHostAddress(uint32_t addr);
+	int      SetHostAddressStr(const std::string& ipaddr);
 	int      SetPort(uint16_t port);
+
+public:
+	// Local member functions
+	CInetSocketAddress();
+	virtual ~CInetSocketAddress() {};  // keep empty
 
 public:
 	//---- Public variables
