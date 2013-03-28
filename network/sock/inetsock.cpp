@@ -1,6 +1,10 @@
 #include <stdint.h>
 #include <string>
 #include "sockintf.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 
 ////////////////////////////////////////////
 // Declaration of classes
@@ -11,13 +15,19 @@ namespace sym
 
 class CInetSocketAddress : public IInetSocketAddress
 {
-public:
+public: 
+	//---- Inherited from IInetSocketAddress
+
 	uint32_t GetIPAddress() const;
 	int      GetIPAddressStr(std::string& ipaddr) const;
 	uint16_t GetPort() const;
 	int      SetIPAddress(uint32_t addr);
 	int      SetIPAddressStr(const std::string& ipaddr);
 	int      SetPort(uint16_t port);
+
+public:
+	//---- Public variables
+	struct sockaddr_in m_addr;
 };
 
 class CLocalSocketAddress : public ILocalSocketAddress
@@ -77,5 +87,10 @@ public:
 };
 
 } // end of namespace sym
+
+////////////////////////////////////////////
+// Implementation of classes
+//
+
 
 
