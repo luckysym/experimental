@@ -97,5 +97,43 @@ public:
 // Implementation of classes
 //
 
+namespace sym
+{
 
+uint32_t CInetSocketAddress::GetHostAddress() const
+{
+	return ::ntohl(m_addr.sin_addr.s_addr);
+}
+
+int CInetSocketAddress::GetHostAddressStr(std::string& ipaddr) const
+{
+	char * pstr = ::inet_ntoa(m_addr.sin_addr);	
+	ipaddr.assign(pstr);
+	return 0;
+}
+
+uint16_t CInetSocketAddress::GetPort() const
+{
+	return ::ntohs(m_addr.sin_port);
+}
+
+int CInetSocketAddress::SetHostAddress(uint32_t addr)
+{
+	m_addr.sin_addr.s_addr = ::htonl(addr);
+	return 0;
+}
+
+int CInetSocketAddress::SetHostAddressStr(const std::string& ipaddr) 
+{
+	int ret = ::inet_aton(ipaddr.c_str(), &m_addr.sin_addr);
+	return ( ret )?0:-1;
+};
+
+int CInetSocketAddress::SetPort(uint16_t port)
+{
+	m_addr.sin_port = ::htons(port);
+	return 0;
+}
+
+} // end of namespace sym
 
