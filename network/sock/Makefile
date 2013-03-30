@@ -1,6 +1,6 @@
 
 TARGET=network
-SOURCES=inetsock.cpp
+SOURCES=inetchannel.cpp
 DEBUG=1
 BINTYPE=DLL
 

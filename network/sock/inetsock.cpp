@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <string>
-#include "sockintf.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -13,7 +12,52 @@
 namespace sym
 {
 
-class CInetSocketAddress : virtual public IInetSocketAddress
+template<class T>
+class TObjectHolder
+{
+public:
+	typedef T OBJTYPE, *POBJTYPE;
+
+private:
+	POBJTYPE m_pobj;
+
+public:	
+	TObjectHolder() : m_pobj(0) {}
+	TObjectHolder(POBJTYPE pobj) : m_pobj(pobj) {}
+	~TObjectHolder() {
+		if ( m_pobj ) Free(m_pobj);
+		return ;
+	}
+
+	POBJTYPE Get() const { return m_pobj; }
+	
+	void Put(POBJTYPE pobj)
+	{ 
+		if ( m_pobj ) Free(pobj);
+		m_pobj = pobj; 
+	}
+
+	POBJTYPE Pop() 
+	{
+		POBJTYPE p = m_pobj;
+		m_pobj = 0;
+		return p;
+	}
+
+	virtual POBJTYPE Alloc(size_t size) 
+	{
+		if ( m_pobj ) Free();	
+		m_pobj =  (POBJTYPE)::operator new(size); 
+		return m_pobj;
+	}
+	virtual void  Free() { delete m_pobj; m_pobj = 0; }
+
+private:
+	TObjectHolder(const TObjectHolder<T>&);
+	TObjectHolder<T>& operator=(const TObjectHolder<T>&);
+};
+
+class CInetSocketAddress 
 {
 public: 
 	//---- Inherited from IInetSocketAddress
@@ -24,7 +68,7 @@ public:
 	int      SetHostAddress(uint32_t addr);
 	int      SetHostAddressStr(const std::string& ipaddr);
 	int      SetPort(uint16_t port);
-
+	
 public:
 	// Local member functions
 	CInetSocketAddress();
@@ -34,22 +78,20 @@ public:
 	struct sockaddr_in m_addr;
 };
 
-class CLocalSocketAddress : virtual public ILocalSocketAddress
+class CLocalSocketAddress
 {
 public:
 	int  GetAddressPath(std::string& path) const;
 	int  SetAddressPath(const std::string& path);
 };
 
-class CSocket : virtual public ISocket
+class CSocket 
 {
 public:
-	//-- Inherited for ISocket
 	virtual int GetHandle() const;
 	virtual int Close();
 
-public:
-	//-- Local memver functions
+protected:
 	CSocket(int af, int type);
 	CSocket(int sock);
 
@@ -57,58 +99,66 @@ protected:
 	int m_hsock;   // socket file descriptor
 };
 
-class CServerSocket : public CSocket, virtual public IServerSocket
+class CServerSocket : public CSocket
 {
-public: //-- Inheritted from IServerSocket
+public: 
 	int Listen(int backlog);
 
-public:
+protected:
 	CServerSocket(int af);
 };
 
-class CTcpSocket : public CSocket, virtual public ITcpSocket
+class CTcpSocket : public CSocket
 {
-public: //-- Inherited from ITcpSocket
-	int Bind(const IInetSocketAddress& laddr);
-	int Connect(const IInetSocketAddress& raddr);
+public:
+	int Bind(const std::string& ipaddr, uint16_t port);
+	int Connect(const std::string& ipaddr, uint16_t port);
 
 public:
 	CTcpSocket();
 	CTcpSocket(int hsock);
 };
 
-class CTcpServerSocket : public CServerSocket, virtual public ITcpServerSocket
+class CTcpServerSocket : public CServerSocket
 {
 public:
-	int Accept(IInetSocketAddress& raddr, TObjectHolder<ITcpSocket>& sock);
-	int Bind(const IInetSocketAddress& laddr);
+	int Accept(TObjectHolder<CTcpSocket>& sock);
+	int Bind(const CInetSocketAddress& laddr);
 
 public:
 	CTcpServerSocket();
 };
 
-class CUdpSocket : public CSocket, virtual public IUdpSocket
+class CUdpSocket : public CSocket
 {
 public:
-	int Bind(const IInetSocketAddress& laddr);
+	int Bind(const CInetSocketAddress& laddr);
 
 public:
 	CUdpSocket();
 };
 
-class CLocalSocket : public CSocket, virtual public ILocalSocket
+class CLocalSocket : public CSocket
 {
 public:
-	int Bind(const ILocalSocketAddress& laddr);
-	int Connect(const ILocalSocketAddress& raddr);
+	int Bind(const CLocalSocketAddress& laddr);
+	int Connect(const CLocalSocketAddress& raddr);
 };
 
-class CLocalServerSocket : public CServerSocket, virtual public ILocalServerSocket
+class CLocalServerSocket : public CServerSocket
 {
 public:
-	int Accept(ILocalSocketAddress& raddr, TObjectHolder<ILocalSocket>& rsock);
-	int Bind(const ILocalSocketAddress& laddr);
+	int Accept(CLocalSocketAddress& raddr, TObjectHolder<CLocalSocket>& rsock);
+	int Bind(const CLocalSocketAddress& laddr);
 };
+
+
+
+class CTcpClientChannel
+{
+public:
+};
+
 
 } // end of namespace sym
 
@@ -187,7 +237,6 @@ CServerSocket::CServerSocket(int af) : CSocket(af, SOCK_STREAM){ }
 
 int CServerSocket::Listen(int backlog)
 {
-	new CSocket(4);
 	return ::listen(m_hsock, backlog);
 }
 
@@ -198,22 +247,18 @@ CTcpSocket::CTcpSocket() : CSocket(PF_INET, SOCK_STREAM) {}
 
 CTcpSocket::CTcpSocket(int hsock) : CSocket(hsock) {}
 
-int CTcpSocket::Bind(const IInetSocketAddress& laddr)
+int CTcpSocket::Bind()
 {
 	struct sockaddr_in addr;
 	addr.sin_addr.s_addr = ::htonl(laddr.GetHostAddress());
 	addr.sin_port = ::htons(laddr.GetPort());
 
-	return ::bind(m_hsock, (struct sockaddr *)&addr, (socklen_t)sizeof(addr));
+	return ::bind(m_hsock, (const struct sockaddr *)&addr, (socklen_t)sizeof(addr));
 }
 
-int CTcpSocket::Connect(const IInetSocketAddress& raddr)
+int CTcpSocket::Connect(const CInetSocketAddress& raddr)
 {
-	struct sockaddr_in addr;
-	addr.sin_addr.s_addr = ::htonl(raddr.GetHostAddress());
-	addr.sin_port = ::htons(raddr.GetPort());
-
-	return ::connect(m_hsock, (struct sockaddr*)&addr, (socklen_t)sizeof(addr)); 
+	return ::connect(m_hsock, (const struct sockaddr *)&raddr.m_addr, (socklen_t)sizeof(raddr.m_addr)); 
 }
 
 //////////////////////////////////////////
@@ -221,15 +266,15 @@ int CTcpSocket::Connect(const IInetSocketAddress& raddr)
 
 CTcpServerSocket::CTcpServerSocket() : CServerSocket(PF_INET) {}
 
-int CTcpServerSocket::Accept(IInetSocketAddress& raddr, 
-		                     TObjectHolder<ITcpSocket>& sockHolder)
+int CTcpServerSocket::Accept(CInetSocketAddress& raddr, 
+		                     TObjectHolder<CTcpSocket>& sockHolder)
 {
 	struct    sockaddr_in addr;
 	socklen_t len = sizeof(addr);
 	int s = ::accept(m_hsock, (struct sockaddr *)&addr, &len);
 	if ( s >= 0) {
-		ITcpSocket * psock = sockHolder.Alloc(sizeof(CTcpSocket));
-		psock = (ITcpSocket *)new(psock) CTcpSocket(s);
+		CTcpSocket * psock = sockHolder.Alloc(sizeof(CTcpSocket));
+		psock = (CTcpSocket *)new(psock) CTcpSocket(s);
 		raddr.SetHostAddress(::ntohl(addr.sin_addr.s_addr));
 		raddr.SetPort(::ntohs(addr.sin_port));
 		return 0;
@@ -238,7 +283,7 @@ int CTcpServerSocket::Accept(IInetSocketAddress& raddr,
 	}
 }
 
-int CTcpServerSocket::Bind(const IInetSocketAddress& laddr)
+int CTcpServerSocket::Bind(const CInetSocketAddress& laddr)
 {
 	struct sockaddr_in addr;
 	addr.sin_addr.s_addr = ::htonl(laddr.GetHostAddress());
@@ -252,7 +297,7 @@ int CTcpServerSocket::Bind(const IInetSocketAddress& laddr)
 
 CUdpSocket::CUdpSocket() : CSocket(PF_INET, SOCK_DGRAM){}
 
-int CUdpSocket::Bind(const IInetSocketAddress& laddr) 
+int CUdpSocket::Bind(const CInetSocketAddress& laddr) 
 {
 	struct sockaddr_in addr;
 	addr.sin_addr.s_addr = ::htonl(laddr.GetHostAddress());
