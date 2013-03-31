@@ -12,16 +12,16 @@
 namespace sym
 {
 
-
 namespace detail 
 {
 	class CTcpChannelImpl;
+	class CTcpChannelListenerImpl;
 }
 
 class CTcpChannel
 {
 public:
-	CTcpChannel();
+	CTcpChannel(bool created = true);
 	CTcpChannel(const CTcpChannel& ch);
 	~CTcpChannel();
 
@@ -35,12 +35,37 @@ public:
 	int  Connect(const std::string& ipaddr, uint16_t port);
 	int  Close();
 
-private:
+public:
 	CTcpChannel& operator=(const CTcpChannel& ch);
 
 private:
 	detail::CTcpChannelImpl * m_pImpl;
+
+	friend class CTcpChannelListener;
 }; // class CTcpChannel
+
+class CTcpChannelListener
+{
+public:
+	CTcpChannelListener();
+	CTcpChannelListener(const CTcpChannelListener& ch);
+	~CTcpChannelListener();
+
+	int GetHandle() const;
+	std::string GetLocalAddr() const;
+	uint16_t    GetLocalPort() const;
+
+	int Bind(const std::string& ipaddr, uint16_t port);
+	int Listen(int backlog);
+	int Accept(CTcpChannel& ch);
+	int Close();
+
+public:
+	CTcpChannelListener& operator=(const CTcpChannelListener& lis);
+
+private:
+	detail::CTcpChannelListenerImpl * m_pImpl;	
+}; // class CTcpChannelListener
 
 } // end of namespace sym
 
@@ -65,10 +90,26 @@ public:
 	}
 
 public:
-	int                 fd;
-	struct sockaddr_in  laddr;
+	int                fd;
+	struct sockaddr_in laddr;
 	struct sockaddr_in raddr;
 }; // class CTcpChannelImpl
+
+class CTcpChannelListenerImpl
+{
+public:
+	CTcpChannelListenerImpl() {
+		fd = -1;
+		laddr.sin_addr.s_addr = INADDR_ANY;
+		laddr.sin_port = 0;
+		return ;
+	}
+
+public:
+	int                fd;
+	struct sockaddr_in laddr;
+};
+
 
 int MakeInetSockAddr(const std::string& ipaddr, uint16_t port, struct sockaddr_in& addr)
 {
@@ -81,18 +122,15 @@ int MakeInetSockAddr(const std::string& ipaddr, uint16_t port, struct sockaddr_i
 } // end of namespace detail
 
 
-CTcpChannel::CTcpChannel() : m_pImpl(new detail::CTcpChannelImpl())
+CTcpChannel::CTcpChannel(bool created) : m_pImpl(new detail::CTcpChannelImpl())
 {
-	m_pImpl->fd = ::socket(PF_INET, SOCK_STREAM, 0);
+	if ( created )
+		m_pImpl->fd = ::socket(PF_INET, SOCK_STREAM, 0);
 	return ;	
 };
 
-CTcpChannel::CTcpChannel(const CTcpChannel& ch)
+CTcpChannel::CTcpChannel(const CTcpChannel& ch) : m_pImpl(new detail::CTcpChannelImpl())
 {
-	if ( ch.m_pImpl == this->m_pImpl ) return ;
-	if ( m_pImpl->fd >= 0 && m_pImpl->fd != ch.m_pImpl->fd) {
-		this->Close();
-	}
 	*m_pImpl = *ch.m_pImpl;
 	return ;
 }
@@ -151,6 +189,96 @@ int CTcpChannel::Connect(const std::string& ipaddr, uint16_t port)
 	return ret;
 }
 
+int CTcpChannel::Close()
+{
+	int ret = ::close(m_pImpl->fd);
+	m_pImpl->fd = -1;
+	return ret;
+}
+
+CTcpChannel& CTcpChannel::operator=(const CTcpChannel& ch)
+{
+	if ( this->m_pImpl == ch.m_pImpl ) return *this;
+	if ( this->m_pImpl->fd != ch.m_pImpl->fd && this->m_pImpl->fd >= 0) {
+		this->Close();
+	}
+	*this->m_pImpl = *ch.m_pImpl;
+	return *this;
+}
+
+////////////////////////////////
+// Implemenatation of CTcpChannelListener
+
+CTcpChannelListener::CTcpChannelListener()
+{
+	m_pImpl->fd = ::socket(PF_INET, SOCK_STREAM, 0);
+	return ;	
+}
+
+CTcpChannelListener::CTcpChannelListener(const CTcpChannelListener& lis)
+	: m_pImpl(new detail::CTcpChannelListenerImpl())
+{
+	*this->m_pImpl = *lis.m_pImpl;
+	return;
+}
+
+CTcpChannelListener::~CTcpChannelListener()
+{
+	if ( m_pImpl->fd >= 0 ) this->Close();
+	delete this->m_pImpl;
+	return ;
+}
+
+int CTcpChannelListener::GetHandle() const
+{
+	return this->m_pImpl->fd;
+}
+
+std::string CTcpChannelListener::GetLocalAddr() const
+{
+	char * str = ::inet_ntoa(m_pImpl->laddr.sin_addr);
+	return std::string(str);
+}
+
+uint16_t CTcpChannelListener::GetLocalPort() const 
+{
+	return ::ntohs(m_pImpl->laddr.sin_port); 
+}
+
+int CTcpChannelListener::Bind(const std::string& ipaddr, uint16_t port)
+{
+	struct sockaddr_in addr;
+	int ret = detail::MakeInetSockAddr(ipaddr, port, addr);
+	if ( ret < 0 ) return ret;
+	return ::bind(m_pImpl->fd, (struct sockaddr*)&addr, sizeof(addr));
+}
+
+int CTcpChannelListener::Listen(int backlog)
+{
+	return ::listen(m_pImpl->fd, backlog);	
+}
+
+int CTcpChannelListener::Accept(CTcpChannel& ch)
+{
+	struct sockaddr_in addr;
+	socklen_t          len = sizeof(addr);
+	int ret = ::accept(m_pImpl->fd, (struct sockaddr*)&addr, &len);
+	if ( ret < 0) return ret;
+	if ( ch.GetHandle() >= 0) ch.Close();
+	ch.m_pImpl->fd = ret;
+	ch.m_pImpl->laddr = this->m_pImpl->laddr;
+	ch.m_pImpl->raddr = addr;
+	return 0;
+}
+
+int CTcpChannelListener::Close() {
+	int ret = ::close(m_pImpl->fd);
+	m_pImpl->fd = -1;
+	return ret;
+}
+
 }; // end of namespace sym
+
+
 
 
