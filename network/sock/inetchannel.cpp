@@ -52,10 +52,13 @@ class CUdpChannelImpl
 public:
 	CUdpChannelImpl() {
 		fd = -1;
+		laddr.sin_family = AF_INET;
 		laddr.sin_addr.s_addr = INADDR_ANY;
 		laddr.sin_port = 0;
+		raddr.sin_family = AF_INET;
 		raddr.sin_addr.s_addr = INADDR_ANY;
 		raddr.sin_port = 0;
+		taddr.sin_family = AF_INET;
 		taddr.sin_addr.s_addr = INADDR_ANY;
 		taddr.sin_port = 0;
 		return ;
@@ -73,6 +76,7 @@ int MakeInetSockAddr(const std::string& ipaddr, uint16_t port, struct sockaddr_i
 	int ret = ::inet_aton(ipaddr.c_str(), &addr.sin_addr);
 	if ( !ret ) return -1;
 	addr.sin_port = ::htons(port);
+	addr.sin_family = AF_INET;
 	return 0;
 }
 

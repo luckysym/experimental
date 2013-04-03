@@ -1,6 +1,6 @@
 
 TARGET=communication
-SOURCES=inetchannel.cpp
+SOURCES=inetchannel.cpp localchannel.cpp
 DEBUG=1
 BINTYPE=DLL
 
