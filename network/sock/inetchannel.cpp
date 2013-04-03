@@ -4,70 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-////////////////////////////////////////////
-// Declaration of classes
-//
-
-namespace sym
-{
-
-namespace detail 
-{
-	class CTcpChannelImpl;
-	class CTcpChannelListenerImpl;
-}
-
-class CTcpChannel
-{
-public:
-	CTcpChannel(bool created = true);
-	CTcpChannel(const CTcpChannel& ch);
-	~CTcpChannel();
-
-	int         GetHandle() const;
-	std::string GetRemoteAddr() const;
-	uint16_t    GetRemotePort() const;
-	std::string GetLocalAddr()  const;
-	uint16_t    GetLocalPort()  const;
-
-	int  Bind(const std::string& ipaddr, uint16_t port);
-	int  Connect(const std::string& ipaddr, uint16_t port);
-	int  Close();
-
-public:
-	CTcpChannel& operator=(const CTcpChannel& ch);
-
-private:
-	detail::CTcpChannelImpl * m_pImpl;
-
-	friend class CTcpChannelListener;
-}; // class CTcpChannel
-
-class CTcpChannelListener
-{
-public:
-	CTcpChannelListener();
-	CTcpChannelListener(const CTcpChannelListener& ch);
-	~CTcpChannelListener();
-
-	int GetHandle() const;
-	std::string GetLocalAddr() const;
-	uint16_t    GetLocalPort() const;
-
-	int Bind(const std::string& ipaddr, uint16_t port);
-	int Listen(int backlog);
-	int Accept(CTcpChannel& ch);
-	int Close();
-
-public:
-	CTcpChannelListener& operator=(const CTcpChannelListener& lis);
-
-private:
-	detail::CTcpChannelListenerImpl * m_pImpl;	
-}; // class CTcpChannelListener
-
-} // end of namespace sym
+#include "inetchannel.h"
 
 ///////////////////////////////////////////
 // Implementation
@@ -110,6 +47,20 @@ public:
 	struct sockaddr_in laddr;
 };
 
+class CUdpChannelImpl
+{
+public:
+	CUdpChannelImpl() {
+		fd = -1;
+		laddr.sin_addr.s_addr = INADDR_ANY;
+		laddr.sin_port = 0;
+		return ;
+	}
+
+public:
+	int                fd;
+	struct sockaddr_in laddr;
+};
 
 int MakeInetSockAddr(const std::string& ipaddr, uint16_t port, struct sockaddr_in& addr)
 {
@@ -196,15 +147,6 @@ int CTcpChannel::Close()
 	return ret;
 }
 
-CTcpChannel& CTcpChannel::operator=(const CTcpChannel& ch)
-{
-	if ( this->m_pImpl == ch.m_pImpl ) return *this;
-	if ( this->m_pImpl->fd != ch.m_pImpl->fd && this->m_pImpl->fd >= 0) {
-		this->Close();
-	}
-	*this->m_pImpl = *ch.m_pImpl;
-	return *this;
-}
 
 ////////////////////////////////
 // Implemenatation of CTcpChannelListener
@@ -277,8 +219,65 @@ int CTcpChannelListener::Close() {
 	return ret;
 }
 
-}; // end of namespace sym
+//////////////////////////////////////////
+// Implementation of CUdpChannel
 
+CUdpChannel::CUdpChannel() : m_pImpl(new detail::CUdpChannelImpl())
+{
+	m_pImpl->fd = ::socket(PF_INET, SOCK_DGRAM, 0);
+	return ;
+}
+
+CUdpChannel::CUdpChannel(const CUdpChannel& ch)
+	: m_pImpl(new detail::CUdpChannelImpl())
+{
+	*this->m_pImpl = *ch.m_pImpl;
+	return ;
+}
+
+CUdpChannel::~CUdpChannel()
+{
+	if ( this->m_pImpl->fd >= 0) this->Close();
+	delete this->m_pImpl;
+	this->m_pImpl = 0;
+	return ;
+}
+
+int CUdpChannel::GetHandle() const
+{
+	return m_pImpl->fd;
+}
+
+std::string CUdpChannel::GetLocalAddr() const
+{
+	char * str = ::inet_ntoa(m_pImpl->laddr.sin_addr);
+	return std::string(str);
+}
+
+uint16_t CUdpChannel::GetLocalPort() const
+{
+	return ::ntohs(m_pImpl->laddr.sin_port);
+}
+
+int CUdpChannel::Bind(const std::string& ipaddr, uint16_t port)
+{
+	struct sockaddr_in addr;
+	int ret = detail::MakeInetSockAddr(ipaddr, port, addr);
+	if ( ret < 0 ) return ret;
+	ret = ::bind(m_pImpl->fd, (const struct sockaddr *)&addr, sizeof(addr));
+	if ( ret == 0 ) this->m_pImpl->laddr = addr;
+	return ret;
+}
+
+int CUdpChannel::Close()
+{
+	int ret = ::close(m_pImpl->fd);
+	m_pImpl->fd = -1;
+	return ret;
+}
+
+
+}; // end of namespace sym
 
 
 
