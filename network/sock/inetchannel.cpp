@@ -54,12 +54,18 @@ public:
 		fd = -1;
 		laddr.sin_addr.s_addr = INADDR_ANY;
 		laddr.sin_port = 0;
+		raddr.sin_addr.s_addr = INADDR_ANY;
+		raddr.sin_port = 0;
+		taddr.sin_addr.s_addr = INADDR_ANY;
+		taddr.sin_port = 0;
 		return ;
 	}
 
 public:
 	int                fd;
 	struct sockaddr_in laddr;
+	struct sockaddr_in raddr;
+	struct sockaddr_in taddr; // the addr which is set by recv
 };
 
 int MakeInetSockAddr(const std::string& ipaddr, uint16_t port, struct sockaddr_in& addr)
@@ -145,6 +151,18 @@ int CTcpChannel::Close()
 	int ret = ::close(m_pImpl->fd);
 	m_pImpl->fd = -1;
 	return ret;
+}
+
+int CTcpChannel::Send(const char *buf, size_t size, int flags)
+{
+	if ( !buf || !size ) return 0;
+	return ::send(m_pImpl->fd, buf, size, flags);
+}
+
+int CTcpChannel::Recv(char *buf, size_t size, int flags)
+{
+	if (!buf || !size) return 0;
+	return ::recv(m_pImpl->fd, buf, size, flags);
 }
 
 
@@ -248,6 +266,17 @@ int CUdpChannel::GetHandle() const
 	return m_pImpl->fd;
 }
 
+std::string CUdpChannel::GetRemoteAddr() const
+{
+	char * str = ::inet_ntoa(m_pImpl->raddr.sin_addr);
+	return std::string(str);
+}
+
+uint16_t CUdpChannel::GetRemotePort() const
+{
+	return ::ntohs(m_pImpl->raddr.sin_port);
+}
+
 std::string CUdpChannel::GetLocalAddr() const
 {
 	char * str = ::inet_ntoa(m_pImpl->laddr.sin_addr);
@@ -257,6 +286,17 @@ std::string CUdpChannel::GetLocalAddr() const
 uint16_t CUdpChannel::GetLocalPort() const
 {
 	return ::ntohs(m_pImpl->laddr.sin_port);
+}
+
+std::string CUdpChannel::GetRecvAddr() const
+{
+	char * str = ::inet_ntoa(m_pImpl->taddr.sin_addr);
+	return std::string(str);
+}
+
+uint16_t CUdpChannel::GetRecvPort() const
+{
+	return ::ntohs(m_pImpl->taddr.sin_port);
 }
 
 int CUdpChannel::Bind(const std::string& ipaddr, uint16_t port)
@@ -269,6 +309,15 @@ int CUdpChannel::Bind(const std::string& ipaddr, uint16_t port)
 	return ret;
 }
 
+int CUdpChannel::Connect(const std::string& ipaddr, uint16_t port)
+{
+	struct sockaddr_in addr;
+	int ret = detail::MakeInetSockAddr(ipaddr, port, addr);
+	if ( ret < 0 ) return ret;
+	this->m_pImpl->raddr = addr;
+	return 0;
+}
+
 int CUdpChannel::Close()
 {
 	int ret = ::close(m_pImpl->fd);
@@ -276,6 +325,22 @@ int CUdpChannel::Close()
 	return ret;
 }
 
+int CUdpChannel::Send(const char *buf, size_t size, int flags)
+{
+	if ( !buf || !size ) return 0;
+	return ::sendto(m_pImpl->fd, buf, size, flags, 
+					(const struct sockaddr*)&m_pImpl->raddr,
+					sizeof(m_pImpl->raddr));
+}
+
+int CUdpChannel::Recv(char *buf, size_t size, int flags)
+{
+	if ( !buf || !size ) return 0;
+	socklen_t len = sizeof(m_pImpl->taddr);
+	return ::recvfrom(m_pImpl->fd, buf, size, flags,
+	                  (struct sockaddr *)&m_pImpl->taddr, &len);
+	
+}
 
 }; // end of namespace sym
 

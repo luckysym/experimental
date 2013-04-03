@@ -32,6 +32,9 @@ public:
 	int  Connect(const std::string& ipaddr, uint16_t port);
 	int  Close();
 
+	int  Send(const char * buf, size_t size, int flags = 0);
+	int  Recv(char * buf, size_t size, int flags = 0);
+
 private:
 	CTcpChannel& operator=(const CTcpChannel& ch); // no impl
 
@@ -72,11 +75,19 @@ public:
 	~CUdpChannel();
 
 	int GetHandle() const;
+	std::string GetRemoteAddr() const;
+	uint16_t    GetRemotePort() const;
 	std::string GetLocalAddr() const;
 	uint16_t    GetLocalPort() const;
-
+	std::string GetRecvAddr()  const;
+	uint16_t    GetRecvPort()  const;
+	
 	int Bind(const std::string& ipaddr, uint16_t port);
+	int Connect(const std::string& ipaddr, uint16_t port);
 	int Close();
+
+	int Send(const char *buf, size_t size, int flags = 0);
+	int Recv(char *buf, size_t size, int flags = 0);
 
 private:
 	CUdpChannel& operator=(const CUdpChannel& ch); // no impl
@@ -90,4 +101,3 @@ private:
 
 
 #endif // _SYM_INETCHANNEL_H
-
