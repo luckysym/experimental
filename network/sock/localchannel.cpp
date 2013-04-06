@@ -114,6 +114,8 @@ int CLocalChannel::Close()
 {
 	int ret = ::close(m_pImpl->fd);
 	m_pImpl->fd = -1;
+	::unlink(m_pImpl->laddr.sun_path);
+	m_pImpl->laddr.sun_path[0] = 0;
 	return ret;
 }
 
