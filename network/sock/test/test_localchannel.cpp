@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	} else {
 		CLocalChannel chs;
 		ret = chs.Bind("/tmp/localchannel_server");
+		::sleep(1);
 		if ( ret ) {
 			cout<<"error: chs.Bind() = "<<strerror(ret)<<endl;
 			return 0;
@@ -89,7 +90,7 @@ int main(int argc, char *argv[])
 		}
 		chs.Close();
 		unlink(SERVER_PATH);
-
+	}
 	return 0;
 }
 
