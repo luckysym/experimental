@@ -122,9 +122,13 @@ int CLocalChannel::Close()
 int CLocalChannel::Send(const char *buf, size_t size, int flags)
 {
 	if ( !buf || !size) return 0;
-	return ::sendto(m_pImpl->fd, buf, size, flags,
-	                (const struct sockaddr*)&m_pImpl->raddr,
-					sizeof(m_pImpl->raddr));
+	if ( m_pImpl->raddr.sun_path[0] == 0) {
+		return ::send(m_pImpl->fd, buf, size, flags);
+	} else {
+		return ::sendto(m_pImpl->fd, buf, size, flags,
+	    	            (const struct sockaddr*)&m_pImpl->raddr,
+						sizeof(m_pImpl->raddr));
+	}
 }
 
 int CLocalChannel::Recv(char *buf, size_t size, int flags)
@@ -136,5 +140,35 @@ int CLocalChannel::Recv(char *buf, size_t size, int flags)
 }
 
 
+int CLocalChannel::CreatePipeChannel(CLocalChannel * channels[])
+{
+	int fd[2], ret = 0;
+	
+	if (channels[0]->m_pImpl->fd >= 0) ret = channels[0]->Close();
+	if ( ret ) return ret;
+	if (channels[1]->m_pImpl->fd >= 0) ret = channels[1]->Close();
+	if ( ret ) return ret;
+
+	ret = ::socketpair(AF_LOCAL, SOCK_DGRAM, 0, fd);
+	if ( ret < 0 ) return ret;
+	
+	channels[0]->m_pImpl->raddr.sun_family = AF_LOCAL;
+	channels[0]->m_pImpl->raddr.sun_path[0] = 0;
+	channels[0]->m_pImpl->laddr.sun_family = AF_LOCAL;
+	channels[0]->m_pImpl->laddr.sun_path[0] = 0;
+	channels[0]->m_pImpl->taddr.sun_family = AF_LOCAL;
+	channels[0]->m_pImpl->taddr.sun_path[0] = 0;
+	channels[1]->m_pImpl->raddr.sun_family = AF_LOCAL;
+	channels[1]->m_pImpl->raddr.sun_path[0] = 0;
+	channels[1]->m_pImpl->laddr.sun_family = AF_LOCAL;
+	channels[1]->m_pImpl->laddr.sun_path[0] = 0;
+	channels[1]->m_pImpl->taddr.sun_family = AF_LOCAL;
+	channels[1]->m_pImpl->taddr.sun_path[0] = 0;
+
+	channels[0]->m_pImpl->fd = fd[0];
+	channels[1]->m_pImpl->fd = fd[1];
+
+	return 0;
+}
 
 } // end of namespace sym

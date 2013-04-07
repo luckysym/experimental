@@ -31,6 +31,8 @@ public:
 	int Send(const char *buf, size_t size, int flags = 0);
 	int Recv(char *buf, size_t size, int flags = 0); 
 
+	static int CreatePipeChannel(CLocalChannel* channels[2]);
+
 private:
 	CLocalChannel& operator=(const CLocalChannel& ch); // no impl
 
