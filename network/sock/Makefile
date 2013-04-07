@@ -1,6 +1,7 @@
 
 TARGET=communication
 SOURCES=inetchannel.cpp localchannel.cpp
+HEADERS=inetchannel.h localchannel.h sockdef.h
 DEBUG=1
 BINTYPE=DLL
 
@@ -13,6 +14,7 @@ FILE_EXTNAME=
 RM=rm -fR
 RMDIR=rmdir
 MKDIR=mkdir -p
+COPY=cp
 OBJDIR=build
 OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.cpp, %.o, $(SOURCES)))
 DEGUB_TAG=
@@ -34,10 +36,16 @@ endif
 
 TARGET:=$(OBJDIR)/$(TARGET_PREFIX)$(TARGET)$(DEBUG_TAG).$(FILE_EXTNAME)
 
-.PHONY: all clean
+.PHONY: all clean install
 
 all: $(TARGET)
 	$(LD) $(LDFLAGS) -o $(TARGET) $(OBJS)
+
+install:
+	$(MKDIR) $(PROGRAM)/include/network
+	$(COPY) $(HEADERS) $(PROGRAM)/include/network
+	$(COPY) $(OBJDIR)/*.so $(PROGRAM)/lib
+
 
 $(TARGET): $(OBJDIR) $(OBJS)
 	
