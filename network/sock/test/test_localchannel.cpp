@@ -1,4 +1,4 @@
-#include "../sockdef.h"
+#include "../sockbase.h"
 #include "../localchannel.h"
 #include <iostream>
 #include <unistd.h>
